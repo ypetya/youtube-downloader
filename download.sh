@@ -36,7 +36,13 @@ function get_mp3_from_youtube() {
 
 function download_youtube_link() {
   echo " downloading link: $1"
-  TITLE=$(curl -s $1 | grep -o "title>.*</title>" | sed 's/title>//g')
+  BODY="$(curl -s $1)"
+  while [ -z "$BODY" ]; do
+    echo "no internet connection, waiting 10 sec"
+    sleep 10
+    BODY="$(curl -s $1)"
+  done
+  TITLE=$(echo $BODY | grep -o "title>.*</title>" | sed 's/title>//g')
   TITLE="$(echo $TITLE | tr ' ' '_' |tr -cd '[:alnum:]_').mp3"
   echo " destenation: $OUTPUT_DIR/$TITLE"
 
@@ -49,7 +55,7 @@ function download_all_files_from_youtube {
   for f in $(ls -1 $INPUT_DIR/*); 
   do
     echo "getting links from file : $f"
-    LINKS=cat $f | grep -o "http[^\' \";,$]*";
+    LINKS=$(cat $f | grep -o "http[^\' \";,$]*")
     for link in $LINKS; do
       download_youtube_link $link
     done
