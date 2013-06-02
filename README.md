@@ -5,11 +5,11 @@ This script downloads mp3 files from youtube using offliberty.com
 
 * To download a single file use the command:
 
-    downloader.sh <youtube_link>
+    `downloader.sh <youtube_link>`
 
 * Mass downloading
     
-    downloader.sh <input_dir> <output_dir>
+    `downloader.sh <input_dir> <output_dir>`
 
 How it works
 ============
