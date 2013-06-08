@@ -67,9 +67,15 @@ function download_all_files_from_youtube {
   cd $DIR
 }
 
-# interpreting command prompt / printing help
+# exiting if script is already running
+# exit if I am already running
+RUNNING=`ps --no-headers -C$0 | wc -l`
+if [ ${RUNNING} -gt 1 ]; then
+  echo "Previous ${COMMAND} is still running, exiting."
+  exit 1
+fi
 
-# --- CONFIG SECTION
+# interpreting command prompt / printing help
 
 if [ $# -eq 1 ]; then
   OUTPUT_DIR=$(pwd)
