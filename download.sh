@@ -2,7 +2,7 @@
 
 # @author : Peter Kiss - ypetya@gmail.com
 # usage -> README
-HELP="$( cat $(dirname $0)/README.md )"
+HELP="$( cat ${0%/*}/README.md )"
 
 # --- SCRIPT STARTS HERE
 
@@ -27,24 +27,25 @@ function get_youtube_download_link() {
 function get_mp3_from_youtube() {
   DOWNLOAD_LINK="$(get_youtube_download_link $1 )"
   if [ -z "$DOWNLOAD_LINK" ]; then
-    echo "invalid download link, sorry."
+    echo "Invalid download link, sorry."
   else
-    echo " download link: $DOWNLOAD_LINK"
+    echo " Download link: $DOWNLOAD_LINK"
     curl -o $2 $DOWNLOAD_LINK
   fi
 }
 
 function download_youtube_link() {
-  echo " downloading link: $1"
+  echo " Downloading link: $1"
   BODY="$(curl -s $1)"
   while [ -z "$BODY" ]; do
-    echo "no internet connection, waiting 10 sec"
+    echo "No internet connection, waiting 10 sec"
     sleep 10
     BODY="$(curl -s $1)"
   done
-  TITLE=$(echo $BODY | grep -o "title>.*</title>" | sed 's/title>//g')
-  TITLE="$(echo $TITLE | tr ' ' '_' |tr -cd '[:alnum:]_').mp3"
-  echo " destenation: $OUTPUT_DIR/$TITLE"
+  TITLE=$(echo $BODY | grep -o "title>.*</title>")
+  TITLE=${MYSTRING//?(<\/)title>/}
+  TITLE="$(echo $TITLE | tr ' ' '_' | tr -cd '[:alnum:]_-').mp3"
+  echo " Destenation: $OUTPUT_DIR/$TITLE"
 
   get_mp3_from_youtube $1 "$OUTPUT_DIR/$TITLE"
 }
@@ -54,11 +55,13 @@ function download_all_files_from_youtube {
   # getting links from input files 
   for f in $(ls -1 $INPUT_DIR/*); 
   do
-    echo "getting links from file : $f"
+    echo "Getting links from file : $f"
     LINKS=$(cat $f | grep -o "http[^\' \";,$]*")
     for link in $LINKS; do
       download_youtube_link $link
     done
+    # removing  file after finished
+    rm $f
   done
 
   cd $DIR
