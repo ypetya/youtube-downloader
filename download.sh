@@ -50,7 +50,8 @@ function download_youtube_link() {
     BODY="$(curl -s $1)"
   done
   TITLE=$(echo $BODY | grep -o "title>.*</title>")
-  TITLE=${MYSTRING//?(<\/)title>/}
+  TITLE="${TITLE#title>}"
+  TITLE="${TITLE%</title>}"
   TITLE="$(echo $TITLE | tr ' ' '_' | tr -cd '[:alnum:]_-').mp3"
   FILE="$OUTPUT_DIR/$TITLE"
   if [ -f $FILE ]; then
@@ -87,6 +88,7 @@ function download_all_files_from_youtube {
 RUNNING=($(pidof -x $0))
 if [ ${#RUNNING[@]} -gt 1 ]; then
   echo "Previous ${COMMAND} is still running, exiting."
+  echo "RUNNING pids: $RUNNING"
   exit 1
 fi
 
