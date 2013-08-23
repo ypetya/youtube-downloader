@@ -1,8 +1,20 @@
 #!/bin/bash
 
 # @author : Peter Kiss - ypetya@gmail.com
-# usage -> README
-HELP="$( cat ${0%/*}/README.md )"
+# usage -> README.md
+#
+# this function prints out help message
+# this script can be sourced
+# MinGW compatible
+function help() {
+  HELP_FILE="${0%/*}/README.md"
+  if [ -e "$HELP_FILE" ]; then
+    cat "$HELP_FILE"
+  else
+    echo "bash mode"
+    grep fun download.sh
+  fi
+}
 
 
 # Downloading param link from youtube using offliberty.com:
@@ -18,29 +30,45 @@ HELP="$( cat ${0%/*}/README.md )"
 
 # --- FUNCTIONS
 
-# this function will return the download url of a youtube video from offliberty
 # DEBUG_ARGS="-D header_received.log"
+# this function will return the download url of a youtube video from offliberty
 function get_youtube_download_link() { 
-  curl -s $DEBUG_ARGS --data-urlencode "track=$1" 'http://offliberty.com/off.php' | grep -o http.*mp3
+  curl -s $DEBUG_ARGS --data-urlencode "track=$1" 'http://offliberty.com/off.php' | grep_o 'http.*mp3'
 }
 
-# this function downloads the file
-# it calls for a download url and if it is OK, it downloads the file
-# param 1: the youtube link
-# param 2: the file_name to save
+# this function downloads the file [Call this]
+# it calls for a download url and if it is OK, it downloads
+#  * if curl is interrupted it retries (case of internet connection problem)
+# fun param 1: the youtube link
+# fun param 2: the file_name to save
 function get_mp3_from_youtube() {
-  DOWNLOAD_LINK="$(get_youtube_download_link $1 )"
+  local DOWNLOAD_LINK="$(get_youtube_download_link $1 )"
   if [ -z "$DOWNLOAD_LINK" ]; then
     echo " Invalid download link, sorry."
   else
     echo " Download link: $DOWNLOAD_LINK"
-    curl -o $2 $DOWNLOAD_LINK
+    local CURL_EXIT_CODE=18;
+    local RETRY_COUNT=64;
+    while [ $CURL_EXIT_CODE -eq 18 ]; do
+      if [ $RETRY_COUNT -le 0]; then break; fi
+      let RETRY_COUNT=$RETRY_COUNT-1
+      curl -C -o $2 "$DOWNLOAD_LINK"; 
+      CURL_EXIT_CODE=$?;
+    done
   fi
 }
 
+grep_o() {
+# FIXME for mingw compatibility
+#  local exp="\"while(/($1)/g) {print \\\"\\\$1\\n\\\"}\""
+#  echo "perl -n -e $exp"
+#  perl -n -e "$exp"
+  grep -o $1
+}
+
 # this function gets the youtube page of a video
-# parses the title out from the HTML and creates the destenation file name
-# if destenation file not found, it starts the downloading
+# parses the title out from the HTML and generates the destenation file name
+# if destenation does not exist yet starts the downloading
 function download_youtube_link() {
   echo " Downloading link: $1"
   BODY="$(curl -s $1)"
@@ -49,7 +77,7 @@ function download_youtube_link() {
     sleep 10
     BODY="$(curl -s $1)"
   done
-  TITLE=$(echo $BODY | grep -o "title>.*</title>")
+  TITLE=$(echo $BODY | grep_o 'title>.*</title>')
   TITLE="${TITLE#title>}"
   TITLE="${TITLE%</title>}"
   TITLE="$(echo $TITLE | tr ' ' '_' | tr -cd '[:alnum:]_-').mp3"
@@ -62,48 +90,59 @@ function download_youtube_link() {
   fi
 }
 
-# this function gets all of the files in INPUT_DIR
-# greps them for yourube links, and downloads them
-# after a file is finished, it will be removed
+# this function gets all of the files from INPUT_DIR
+# greps them for youtube links and downloads the videos as an audio mp3
+# an input file will be removed after all the downloads finished
 function download_all_files_from_youtube {
   DIR=$(pwd)
   # getting links from input files 
   for f in $(ls -1 $INPUT_DIR/*); 
   do
     echo "Getting links from file : $f"
-    LINKS=$(cat $f | grep -o "http[^\' \";,$]*")
+    LINKS=$(cat $f | grep_o 'http[^'' ";,$]*')
     for link in $LINKS; do
       download_youtube_link $link
     done
-    # removing  file after finished
+    # removing file after finished
     rm $f
   done
 
   cd $DIR
 }
 
-# --- SCRIPT STARTS HERE
+# this function ensures script running only once
+# check pidof exists MinGW / windows compatibility
+function run_only_once() {
+  if ! type pidof > /dev/null 2>&1; then 
+    echo "Windows mode, no pidof"; 
+  else
+    # exit if script is already running
+    RUNNING=($(pidof -x $0))
+    if [ ${#RUNNING[@]} -gt 1 ]; then
+      echo "Previous ${COMMAND} is still running, exiting."
+      echo "RUNNING pids: $RUNNING"
+      exit 1
+    fi
+  fi
+}
 
-# exit if script is already running
-RUNNING=($(pidof -x $0))
-if [ ${#RUNNING[@]} -gt 1 ]; then
-  echo "Previous ${COMMAND} is still running, exiting."
-  echo "RUNNING pids: $RUNNING"
-  exit 1
-fi
-
+# this function interpretes the input args
 # interprete command prompt
-if [ $# -eq 1 ]; then
-  # number of params == 1 --> download it
-  OUTPUT_DIR=$(pwd)
-  download_youtube_link $1
-elif [ $# -eq 2 ]; then
-  # number of params == 2 --> using download dirs
-  INPUT_DIR="${1%/}"
-  OUTPUT_DIR="${2%/}"
-  for d in $INPUT_DIR $OUTPUT_DIR; do mkdir -p $d; done
-  download_all_files_from_youtube 
-else
- echo "$HELP"
-fi
+function start() {
+  if [ $# -eq 1 ]; then
+    # number of params == 1 --> download it
+    OUTPUT_DIR=$(pwd)
+    download_youtube_link $1
+  elif [ $# -eq 2 ]; then
+    # number of params == 2 --> using download dirs
+    INPUT_DIR="${1%/}"
+    OUTPUT_DIR="${2%/}"
+    for d in $INPUT_DIR $OUTPUT_DIR; do mkdir -p $d; done
+    download_all_files_from_youtube 
+  else
+    help
+  fi
+}
 
+run_only_once
+start $*
