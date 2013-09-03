@@ -2,10 +2,11 @@
 
 # @author : Peter Kiss - ypetya@gmail.com
 # usage -> README.md
-#
+# * script can be sourced
+# * MinGW compatible
+
+
 # this function prints out help message
-# this script can be sourced
-# MinGW compatible
 function help() {
   HELP_FILE="${0%/*}/README.md"
   if [ -e "$HELP_FILE" ]; then
@@ -16,25 +17,6 @@ function help() {
   fi
 }
 
-
-# Downloading param link from youtube using offliberty.com:
-# --------------------------------------------------------
-# Example request:
-#
-# http POST format:
-# http://offliberty.com/off.php
-# Request Method:POST
-# Status Code:200 OK
-# Form data :
-# track=http://www.youtube.com/watch?NR=1&v=YOQjPrqWOwo&feature=endscreen
-
-# --- FUNCTIONS
-
-# DEBUG_ARGS="-D header_received.log"
-# this function will return the download url of a youtube video from offliberty
-function get_youtube_download_link() { 
-  curl -s $DEBUG_ARGS --data-urlencode "track=$1" 'http://offliberty.com/off.php' | grep_o 'http.*mp3'
-}
 
 # this function downloads the file [Call this]
 # it calls for a download url and if it is OK, it downloads
@@ -58,13 +40,25 @@ function get_mp3_from_youtube() {
   fi
 }
 
-grep_o() {
-# FIXME for mingw compatibility
-#  local exp="\"while(/($1)/g) {print \\\"\\\$1\\n\\\"}\""
-#  echo "perl -n -e $exp"
-#  perl -n -e "$exp"
-  grep -o $1
+
+# Downloading param link from youtube using offliberty.com:
+# --------------------------------------------------------
+# Example request:
+#
+# http POST format:
+# http://offliberty.com/off.php
+# Request Method:POST
+# Status Code:200 OK
+# Form data :
+# track=http://www.youtube.com/watch?NR=1&v=YOQjPrqWOwo&feature=endscreen
+
+
+# DEBUG_ARGS="-D header_received.log"
+# this function will return the download url of a youtube video from offliberty
+function get_youtube_download_link() { 
+  curl -s $DEBUG_ARGS --data-urlencode "track=$1" 'http://offliberty.com/off.php' | perl -n -e 'while(/(http.*mp3)/){print "$1\n"}'
 }
+
 
 # this function gets the youtube page of a video
 # parses the title out from the HTML and generates the destenation file name
@@ -77,7 +71,7 @@ function download_youtube_link() {
     sleep 10
     BODY="$(curl -s $1)"
   done
-  TITLE=$(echo $BODY | grep_o 'title>.*</title>')
+  TITLE=$(echo $BODY | perl -n -e 'while(/(title>.*<\/title>)/){print "$1\n"}')
   TITLE="${TITLE#title>}"
   TITLE="${TITLE%</title>}"
   TITLE="$(echo $TITLE | tr ' ' '_' | tr -cd '[:alnum:]_-').mp3"
@@ -90,6 +84,7 @@ function download_youtube_link() {
   fi
 }
 
+
 # this function gets all of the files from INPUT_DIR
 # greps them for youtube links and downloads the videos as an audio mp3
 # an input file will be removed after all the downloads finished
@@ -99,7 +94,7 @@ function download_all_files_from_youtube {
   for f in $(ls -1 $INPUT_DIR/*); 
   do
     echo "Getting links from file : $f"
-    LINKS=$(cat $f | grep_o 'http[^'' ";,$]*')
+    LINKS=$(cat $f | perl -n -e 'while(/(http[^'' ";,$]*)/){print "$1\n"}' )
     for link in $LINKS; do
       download_youtube_link $link
     done
